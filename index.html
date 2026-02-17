@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapNews - Photobooth Malioboro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* RESET & BASIC STYLE */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Times New Roman', Times, serif; 
+            background: #222; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+
+        /* TOMBOL KONTROL */
+        #controls { margin-bottom: 20px; text-align: center; z-index: 100; }
+        button { 
+            font-family: 'Times New Roman', serif; 
+            font-size: 16px; 
+            padding: 10px 25px; 
+            margin: 0 10px; 
+            background: #fff; 
+            color: #000; 
+            border: 2px solid #555; 
+            cursor: pointer; 
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        button:hover { background: #ddd; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* KERTAS KORAN */
+        #paper { 
+            width: 700px; 
+            background: #fdfbf7; /* Warna kertas agak krem */
+            border: 1px solid #ccc; 
+            padding: 25px; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            position: relative; 
+            color: #111;
+        }
+
+        /* HEADER KORAN */
+        .header-meta { 
+            border-bottom: 2px solid #000; 
+            border-top: 1px solid #000;
+            padding: 5px 0; 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 11px; 
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .brand { 
+            text-align: center; 
+            font-size: 55px; 
+            font-weight: 900; 
+            letter-spacing: -2px; 
+            line-height: 1; 
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .headline-box {
+            border-top: 3px double #000;
+            border-bottom: 3px double #000;
+            padding: 10px 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .headline {
+            font-size: 32px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* AREA TENGAH (CAMERA / HASIL) */
+        #center-stage {
+            width: 100%;
+            /* Tinggi fix saat mode kamera, auto saat mode download */
+            min-height: 400px; 
+            background: #000;
+            position: relative;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            overflow: hidden;
+        }
+
+        /* VIDEO (LIVE PREVIEW) */
+        #video {
+            width: 100%;
+            height: 400px; /* Tinggi fix agar tidak loncat */
+            object-fit: cover;
+            filter: grayscale(100%) contrast(1.1);
+            /* PENTING: Mirror tampilan live agar user nyaman */
+            transform: scaleX(-1); 
+            display: block;
+        }
+
+        /* LAYOUT HASIL FOTO VERTIKAL (Disembunyikan saat mode kamera) */
+        #result-strip {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            width: 100%;
+            background: #fff;
+            padding: 10px;
+            gap: 15px;
+        }
+
+        .photo-result-item {
+            border: 1px solid #000;
+            padding: 5px;
+            background: #fff;
+        }
+        .photo-result-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+            filter: grayscale(100%);
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 5px;
+        }
+        .photo-caption {
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            font-family: Georgia, serif;
+        }
+
+        /* COUNTDOWN */
+        #countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 100px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 10px #000;
+            display: none;
+            z-index: 50;
+        }
+
+        /* KOLOM BERITA BAWAH */
+        .news-columns {
+            column-count: 2;
+            column-gap: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: justify;
+            border-top: 1px solid #000;
+            padding-top: 15px;
+        }
+        .news-columns p { margin-bottom: 10px; }
+
+        /* PREVIEW SAMPING KECIL (OPSIONAL) */
+        #mini-previews {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .mini-thumb {
+            width: 60px;
+            height: 60px;
+            background: #ddd;
+            border: 1px solid #000;
+            object-fit: cover;
+        }
+
+        #status { color: #fff; margin-top: 10px; font-family: sans-serif; font-size: 14px; }
+        
+        /* Utility */
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="btn-start">Mulai Foto (3x)</button>
+        <button id="btn-download" style="display:none;">download here bb</button>
+        <button id="btn-reset" style="display:none;">mw ulang?</button>
+        <div id="status">ready...</div>
+    </div>
+
+    <div id="paper">
+        <div class="brand">fuck memories, i want kiss</div>
+        
+        <div class="header-meta">
+            <span>VOL. 02 — NO. 225</span>
+            <span>TOKYO, JAPAN 2026</span>
+            <span>miss u so much</span>
+        </div>
+
+        <div class="headline-box">
+            <div class="headline">foto dulu bang </div>
+        </div>
+
+        <div id="center-stage">
+            <video id="video" autoplay playsinline></video>
+            
+            <div id="result-strip">
+                </div>
+
+            <div id="countdown">3</div>
+        </div>
+
+        <div id="mini-previews">
+            <img id="thumb1" class="mini-thumb">
+            <img id="thumb2" class="mini-thumb">
+            <img id="thumb3" class="mini-thumb">
+        </div>
+
+        <div class="news-columns">
+            <p><strong>From kywre - </strong> the chaos of the city outside fails to drown out the silence in this room. captured in these frames is not just a face, but a person still living in the aftermath of a departure.</p>
+            <p>history is usually written by the victors, but this column is dedicated to the one left behind still memorizing the details of a ghost. the world spins on its axis, yet I remain suspended in the gravity of what we used to be.</p>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // --- VARIABEL & ELEMEN ---
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultStrip = document.getElementById('result-strip');
+        const centerStage = document.getElementById('center-stage');
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnDownload = document.getElementById('btn-download');
+        const btnReset = document.getElementById('btn-reset');
+        
+        const countdownEl = document.getElementById('countdown');
+        const statusEl = document.getElementById('status');
+        
+        // Simpan data foto base64 di sini
+        let photos = [];
+        let stream = null;
+
+        // --- 1. INISIALISASI KAMERA ---
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 1280, height: 720, facingMode: 'user' } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("Gagal akses kamera! Pastikan izin diberikan.");
+            }
+        }
+        initCamera();
+
+        // --- 2. FUNGSI CAPTURE (NO MIRROR) ---
+        function captureFrame() {
+            // Set ukuran canvas sesuai video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // LOGIKA PENTING: MEMBALIKKAN GAMBAR
+            // Karena video di CSS di-mirror (scaleX -1), kita harus
+            // membalik canvas secara horizontal agar hasil capture NORMAL.
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            
+            //filter beneran (masuk file)
+            ctx.filter = "grayscale(100%) contrast(1.1)";
+
+            // Gambar video ke canvas
+            ctx.drawImage(video, 0, 0);
+            
+            // Kembalikan setting canvas (opsional, good practice)
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.filter = "none";
+
+            // Ambil data gambar
+            return canvas.toDataURL('image/png');
+        }
+
+        // --- 3. LOGIKA COUNTDOWN & FOTO BERURUTAN ---
+        async function startPhotobooth() {
+            btnStart.disabled = true;
+            photos = []; // Reset foto
+            
+            // Reset thumbnails
+            document.querySelectorAll('.mini-thumb').forEach(img => img.src = '');
+
+            for (let i = 1; i <= 3; i++) {
+                statusEl.textContent = `Bersiap Foto ke-${i}...`;
+                
+                // Countdown
+                countdownEl.style.display = 'block';
+                for(let c = 3; c > 0; c--) {
+                    countdownEl.textContent = c;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+                countdownEl.style.display = 'none';
+
+                // Flash Effect (Visual)
+                centerStage.style.opacity = 0.5;
+                setTimeout(() => centerStage.style.opacity = 1, 100);
+
+                // Ambil Foto
+                const imgData = captureFrame();
+                photos.push(imgData);
+                
+                // Update Thumbnail Kecil
+                document.getElementById(`thumb${i}`).src = imgData;
+                
+                // Jeda antar foto
+                if(i < 3) await new Promise(r => setTimeout(r, 1000));
+            }
+
+            statusEl.textContent = "Foto selesai. Lihat hasil dulu 👀";
+            btnStart.style.display = 'none';
+            btnDownload.style.display = 'inline-block';
+            btnDownload.textContent = "Lihat Hasil";
+            btnReset.style.display = 'inline-block';
+        }
+
+        // --- 4. LOGIKA DOWNLOAD (GANTI LAYOUT) ---
+        async function downloadProcess() {
+            statusEl.textContent = "Menyusun halaman koran...";
+            btnDownload.disabled = true;
+
+            // A. UBAH TAMPILAN: Sembunyikan Video, Tampilkan Strip Foto Vertikal
+            video.style.display = 'none';
+            resultStrip.style.display = 'flex'; // Flex column
+
+            // B. MASUKKAN FOTO KE DALAM STRIP
+            resultStrip.innerHTML = ''; // Bersihkan isi lama
+            const captions = [
+                "HEADLINE NEWS: MOMEN PERTAMA",
+                "SAKSI MATA: KEJADIAN KEDUA",
+                "EKSKLUSIF: BUKTI KETIGA"
+            ];
+
+            photos.forEach((photo, index) => {
+                const item = document.createElement('div');
+                item.className = 'photo-result-item';
+                item.innerHTML = `
+                    <img src="${photo}">
+                    <div class="photo-caption">${captions[index]}</div>
+                `;
+                resultStrip.appendChild(item);
+            });
+
+            // Tunggu render sebentar
+            await new Promise(r => setTimeout(r, 500));
+
+            // C. CAPTURE SELURUH KERTAS DENGAN HTML2CANVAS
+            try {
+                const paperElement = document.getElementById('paper');
+                const canvasResult = await html2canvas(paperElement, {
+                    scale: 2, // Resolusi tinggi
+                    useCORS: true
+                });
+
+                // D. DOWNLOAD
+                const link = document.createElement('a');
+                link.download = `ur_photo_here_${Date.now()}.png`;
+                link.href = canvasResult.toDataURL('image/png');
+                link.click();
+                statusEl.textContent = "doneeee";
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = "Gagal download.";
+            }
+
+            // E. KEMBALIKAN TAMPILAN SEPERTI SEMULA
+            resultStrip.style.display = 'none';
+            video.style.display = 'block';
+            btnDownload.disabled = false;
+        }
+
+            // PREVIEW FULL
+            function showResultPreview() {
+            statusEl.textContent = "Preview hasil foto";
+
+            // SEMBUNYIKAN MODE KAMERA
+            video.style.display = "none";
+            document.getElementById("mini-previews").style.display = "none";
+
+            // TAMPILKAN FOTO BESAR
+            resultStrip.style.display = "flex";
+            resultStrip.innerHTML = '';
+
+            const captions = [
+                "HEADLINE NEWS: MOMEN PERTAMA",
+                "SAKSI MATA: KEJADIAN KEDUA",
+                "EKSKLUSIF: BUKTI KETIGA"
+            ];
+
+            photos.forEach((photo, index) => {
+                const item = document.createElement("div");
+                item.className = "photo-result-item";
+                item.innerHTML = `
+                    <img src="${photo}">
+                    <div class="photo-caption">${captions[index]}</div>
+                `;
+                resultStrip.appendChild(item);
+            });
+
+            // UBAH TOMBOL JADI DOWNLOAD
+            btnDownload.textContent = "Download The Photo";
+            btnDownload.onclick = downloadFinal;
+        }
+    
+            //FUNGSI DOWNLOAD FINAL
+            async function downloadFinal() {
+            statusEl.textContent = "Menyiapkan file download...";
+
+            btnDownload.disabled = true;
+
+            const paperElement = document.getElementById("paper");
+            const canvasResult = await html2canvas(paperElement, {
+                scale: 2,
+                useCORS: true
+            });
+
+            const link = document.createElement("a");
+            link.download = `photo_${Date.now()}.png`;
+            link.href = canvasResult.toDataURL("image/png");
+            link.click();
+
+            statusEl.textContent = "Photo sudah tersimpan ✔";
+            btnDownload.disabled = false;
+        }
+
+
+        // --- 5. RESET ---
+        function resetApp() {
+            location.reload();
+        }
+
+        // EVENT LISTENER
+        btnStart.addEventListener('click', startPhotobooth);
+        btnDownload.addEventListener('click', showResultPreview);
+        btnReset.addEventListener('click', resetApp);
+
+    </script>
+</body>
+</html>
